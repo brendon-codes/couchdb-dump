@@ -20,5 +20,5 @@ Installing dependencies:
 
 To run:
 
-    $ ./couchdb-dump.py http://localhost:5984/some_database_name
+    $ ./couchdb-dump.py http://localhost:5984/some_database_name > db.txt
 
