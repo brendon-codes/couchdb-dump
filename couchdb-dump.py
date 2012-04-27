@@ -26,7 +26,9 @@ from optparse import OptionParser
 
 import requests
 import ijson
-from couchdb.multipart import write_multipart
+
+from couchdb.multipart import write_multipart as couchdb_write_multipart
+from couchdb import json as couchdb_json
 
 
 def main():
@@ -148,7 +150,7 @@ class Dump(object):
         res = requests.get(url, headers={'accept':'application/json'})
         doc = simplejson.loads(res.text)
         doc_count = doc['doc_count']
-        envelope = write_multipart(sys.stdout, boundary=None)
+        envelope = couchdb_write_multipart(sys.stdout, boundary=None)
         done = 0
         while done < doc_count:
             batch_size = self._run_chunk(envelope, done)
@@ -166,7 +168,7 @@ class Dump(object):
         See: couchdb.tools.dump
         """
         attachments = doc.pop('_attachments', {})
-        jsondoc = simplejson.dumps(doc)
+        jsondoc = couchdb_json.encode(doc)
         if attachments:
             parts = envelope.open({
                 'Content-ID': doc['_id'],
@@ -175,7 +177,7 @@ class Dump(object):
             parts.add('application/json', jsondoc)
             for name, info in attachments.items():
                 content_type = info.get('content_type')
-                # CouchDB < 0.8
+                ## CouchDB < 0.8
                 if content_type is None:
                     content_type = info.get('content-type')
                 parts.add(content_type, base64.b64decode(info['data']), {
