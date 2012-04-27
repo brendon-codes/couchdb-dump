@@ -14,22 +14,19 @@ Requirements:
   $ sudo apt-get install libyajl-dev libyajl1
   $ sudo pip install ijson
   $ sudo pip install requests
+  $ sudo pip install CouchDB
 """
 
 import sys
-import logging
 import urllib2
 import urllib
 import simplejson
+import base64
 from optparse import OptionParser
 
 import requests
 import ijson
-
-
-logger = logging.getLogger()
-logger.addHandler(logging.StreamHandler())
-logger.setLevel(logging.INFO)
+from couchdb.multipart import write_multipart
 
 
 def main():
@@ -56,11 +53,13 @@ class RequestWithMethod(urllib2.Request):
          /making-a-http-delete-request-with-urllib2
     """
 
-    def __init__(self, url, method, data=None, headers={},
+    def __init__(self, url, method, data=None, headers=None,
                  origin_req_host=None, unverifiable=False):
         """
         Init
         """
+        if headers is None:
+            headers = {}
         self._method = method
         urllib2.Request\
                .__init__(self, url, data, headers,
@@ -81,13 +80,13 @@ class Requester(object):
     Url Fetching Abstraction
     """
 
-    def get(self, url, params=None):
+    def get(self, url, params=None, headers=None):
         """
         GET request
         """
-        return self.request(url, 'GET', params)
+        return self.request(url, 'GET', params, headers)
 
-    def request(self, url, method, params=None):
+    def request(self, url, method, params=None, headers=None):
         """
         Run a request
         """
@@ -95,6 +94,8 @@ class Requester(object):
         p = None
         if params is None:
             params = {}
+        if headers is None:
+            headers = {}
         if method in ('GET', 'DELETE'):
             if (len(params) > 0) and ('?' not in url):
                 parms = urllib.urlencode(params)
@@ -103,7 +104,7 @@ class Requester(object):
             p = urllib.urlencode(params)
         else:
             raise Exception('Method %s not supported' % method)
-        req = RequestWithMethod(u, method)
+        req = RequestWithMethod(u, method, headers=headers)
         try:
             res = urllib2.urlopen(req, p)
         except urllib2.URLError:
@@ -116,8 +117,8 @@ class Dump(object):
     Main db dumper
     """
 
-    _src_url = None
     _chunk_size = 4
+    _src_url = None
 
     def __init__(self, src_url):
         """
@@ -125,35 +126,70 @@ class Dump(object):
         """
         self._src_url = src_url.rstrip('/')
 
-    def run(self):
+    def _run_chunk(self, envelope):
         """
         Runner
         """
         url = self._path('_all_docs')
         r = Requester().get(url,
-                            params={'limit':self._chunk_size})
+                            params={'limit':self._chunk_size},
+                            headers={'accept':'application/json'})
         rows = ijson.items(r, 'rows.item')
         sess = requests.session()
         for row in rows:
-            self._process_row(sess, row)
+            self._process_row(envelope, sess, row)
         return True
 
-    def _process_row(self, sess, row):
+    def run(self):
+        url = self._path()
+        res = requests.get(url, headers={'accept':'application/json'})
+        doc = simplejson.loads(res.text)
+        doc_count = doc['doc_count']
+        envelope = write_multipart(sys.stdout, boundary=None)
+
+        envelope.close()
+        pass
+
+    def _process_row(self, envelope, doc):
         """
-        Processes one row
+        Processes a row
+
+        See: couchdb.tools.dump
+        """
+        attachments = doc.pop('_attachments', {})
+        jsondoc = simplejson.dumps(doc)
+        if attachments:
+            parts = envelope.open({
+                'Content-ID': doc['id'],
+                'ETag': '"%s"' % doc['rev']
+            })
+            parts.add('application/json', jsondoc)
+            for name, info in attachments.items():
+                content_type = info.get('content_type')
+                # CouchDB < 0.8
+                if content_type is None:
+                    content_type = info.get('content-type')
+                parts.add(content_type, base64.b64decode(info['data']), {
+                    'Content-ID': name
+                })
+            parts.close()
+        else:
+            envelope.add('application/json', jsondoc, {
+                'Content-ID': doc.id,
+                'ETag': '"%s"' % doc.rev
+            })
+        return True
+
+    def _fetch_row(self, envelope, sess, row):
+        """
+        Fetches a row
         """
         url = self._path(row['id'])
         res = sess.get(url,
                        params={'attachments':'true'},
                        headers={'accept':'application/json'})
-        h = res.headers
-        contype = ';'.join((h['content-type'], 'charset=utf-8'))
-        self._out_row(contype, h['content-length'],
-                      h['etag'], row['id'])
-        return True
-
-    def _out_row(self, content_type, content_length, etag, content_id):
-        print [content_type, content_length, etag, content_id]
+        doc = simplejson.loads(res.text)
+        self._process_row(doc)
         return True
 
     def _path(self, *args):
