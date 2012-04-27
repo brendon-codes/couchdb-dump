@@ -132,13 +132,15 @@ class Dump(object):
     Main db dumper
     """
 
-    _chunk_size = 100
+    _chunk_size = 500
+    _progress_interval = None
     _src_url = None
 
     def __init__(self, src_url):
         """
         Init
         """
+        self._progress_interval = self._chunk_size / 10
         self._src_url = src_url.rstrip('/')
 
     def _run_chunk(self, envelope, skip=0):
@@ -153,9 +155,13 @@ class Dump(object):
         rows = ijson.items(r, 'rows.item')
         sess = requests.session()
         i = 0
+        sys.stderr.write("\n")
         for row in rows:
             self._fetch_row(envelope, sess, row)
+            if i % self._progress_interval == 0:
+                sys.stderr.write('.')
             i += 1
+        sys.stderr.write("\n")
         return i
 
     def run(self):
@@ -167,14 +173,13 @@ class Dump(object):
         done = 0
         sys.stderr.write("Doc Count: %d\n" % doc_count)
         sys.stderr.write("Chunk Size: %d\n" % self._chunk_size)
-        sys.stderr.write("\n")
         while done < doc_count:
             batch_size = self._run_chunk(envelope, done)
             if batch_size == 0:
                 break
             else:
                 done += batch_size
-                sys.stderr.write(" - %d\n" % done)
+                sys.stderr.write("%d/%d\n" % (done, doc_count))
         sys.stderr.write("\n")
         sys.stderr.write("Done.\n")
         envelope.close()
