@@ -169,8 +169,8 @@ class Dump(object):
         jsondoc = simplejson.dumps(doc)
         if attachments:
             parts = envelope.open({
-                'Content-ID': doc['id'],
-                'ETag': '"%s"' % doc['rev']
+                'Content-ID': doc['_id'],
+                'ETag': '"%s"' % doc['_rev']
             })
             parts.add('application/json', jsondoc)
             for name, info in attachments.items():
@@ -183,9 +183,9 @@ class Dump(object):
                 })
             parts.close()
         else:
-            envelope.add('application/json', jsondoc, {
-                'Content-ID': doc['id'],
-                'ETag': '"%s"' % doc['rev']
+            envelope.add('application/json;charset=utf-8', jsondoc, {
+                'Content-ID': doc['_id'],
+                'ETag': '"%s"' % doc['_rev']
             })
         return True
 
