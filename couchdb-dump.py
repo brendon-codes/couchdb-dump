@@ -149,9 +149,9 @@ class Dump(object):
         """
         url = self._path('_all_docs')
         r = Requester().get(url,
-                            params={'limit':self._chunk_size,
-                                    'skip':skip},
-                            headers={'accept':'application/json'})
+                            params={'limit': self._chunk_size,
+                                    'skip': skip},
+                            headers={'accept': 'application/json'})
         rows = ijson.items(r, 'rows.item')
         sess = requests.session()
         i = 0
@@ -166,7 +166,7 @@ class Dump(object):
 
     def run(self):
         url = self._path()
-        res = requests.get(url, headers={'accept':'application/json'})
+        res = requests.get(url, headers={'accept': 'application/json'})
         doc = couchdb_json.decode(res.text)
         doc_count = doc['doc_count']
         envelope = couchdb_write_multipart(sys.stdout, boundary=None)
@@ -221,8 +221,8 @@ class Dump(object):
         """
         url = self._path(row['id'])
         res = sess.get(url,
-                       params={'attachments':'true'},
-                       headers={'accept':'application/json'})
+                       params={'attachments': 'true'},
+                       headers={'accept': 'application/json'})
         doc = couchdb_json.decode(res.text)
         self._process_row(envelope, doc)
         return True
