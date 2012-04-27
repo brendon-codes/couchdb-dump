@@ -150,14 +150,15 @@ class Dump(object):
         url = self._path('_all_docs')
         r = Requester().get(url,
                             params={'limit': self._chunk_size,
-                                    'skip': skip},
+                                    'skip': skip,
+                                    'include_docs': 'true',
+                                    'attachments': 'true'},
                             headers={'accept': 'application/json'})
         rows = ijson.items(r, 'rows.item')
-        sess = requests.session()
         i = 0
         sys.stderr.write("\n")
         for row in rows:
-            self._fetch_row(envelope, sess, row)
+            self._process_row(envelope, row['doc'])
             if i % self._progress_interval == 0:
                 sys.stderr.write('.')
             i += 1
@@ -166,8 +167,10 @@ class Dump(object):
 
     def run(self):
         url = self._path()
-        res = requests.get(url, headers={'accept': 'application/json'})
-        doc = couchdb_json.decode(res.text)
+        res = Requester().get(url, headers={'accept': 'application/json'})
+        res_data = res.read()
+        res.close()
+        doc = couchdb_json.decode(res_data)
         doc_count = doc['doc_count']
         envelope = couchdb_write_multipart(sys.stdout, boundary=None)
         done = 0
@@ -213,18 +216,6 @@ class Dump(object):
                 'Content-ID': doc['_id'],
                 'ETag': '"%s"' % doc['_rev']
             })
-        return True
-
-    def _fetch_row(self, envelope, sess, row):
-        """
-        Fetches a row
-        """
-        url = self._path(row['id'])
-        res = sess.get(url,
-                       params={'attachments': 'true'},
-                       headers={'accept': 'application/json'})
-        doc = couchdb_json.decode(res.text)
-        self._process_row(envelope, doc)
         return True
 
     def _path(self, *args):
