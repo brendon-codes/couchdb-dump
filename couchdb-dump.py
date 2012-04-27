@@ -34,6 +34,19 @@ def main():
     """
     Main
     """
+    try:
+        _go()
+    except KeyboardInterrupt:
+        sys.stderr.write("\nStopping.\n")
+        return 1
+    else:
+        return 0
+
+
+def _go():
+    """
+    Go
+    """
     usage = 'usage: %prog SRC_URL'
     parser = OptionParser(usage=usage)
     options, args = parser.parse_args()
@@ -44,7 +57,7 @@ def main():
     couchdb_json.use('simplejson')
     d = Dump(*args)
     d.run()
-    return 0
+    return True
 
 
 class RequestWithMethod(urllib2.Request):
@@ -119,7 +132,7 @@ class Dump(object):
     Main db dumper
     """
 
-    _chunk_size = 4
+    _chunk_size = 100
     _src_url = None
 
     def __init__(self, src_url):
@@ -152,12 +165,18 @@ class Dump(object):
         doc_count = doc['doc_count']
         envelope = couchdb_write_multipart(sys.stdout, boundary=None)
         done = 0
+        sys.stderr.write("Doc Count: %d\n" % doc_count)
+        sys.stderr.write("Chunk Size: %d\n" % self._chunk_size)
+        sys.stderr.write("\n")
         while done < doc_count:
             batch_size = self._run_chunk(envelope, done)
             if batch_size == 0:
                 break
             else:
                 done += batch_size
+                sys.stderr.write(" - %d\n" % done)
+        sys.stderr.write("\n")
+        sys.stderr.write("Done.\n")
         envelope.close()
         pass
 
