@@ -11,16 +11,19 @@ Tested On:
 
 Requirements:
 
-  $ sudo apt-get install libyajl-dev libyajl1 yajl-tools
+  $ sudo apt-get install libyajl-dev libyajl1
   $ sudo pip install ijson
+  $ sudo pip install requests
 """
 
 import sys
 import logging
 import urllib2
 import urllib
+import simplejson
 from optparse import OptionParser
 
+import requests
 import ijson
 
 
@@ -104,7 +107,7 @@ class Requester(object):
         try:
             res = urllib2.urlopen(req, p)
         except urllib2.URLError:
-            raise Exception('Cannot reach server!')
+            raise Exception('Cannot reach server or bad url!')
         return res
 
 
@@ -114,7 +117,7 @@ class Dump(object):
     """
 
     _src_url = None
-    _chunk_size = 3
+    _chunk_size = 4
 
     def __init__(self, src_url):
         """
@@ -127,12 +130,30 @@ class Dump(object):
         Runner
         """
         url = self._path('_all_docs')
-        params = {
-            'limit': self._chunk_size
-        }
-        r = Requester().get(url, params)
-        ijson.items(r, 'rows.item')
-        print r.read()
+        r = Requester().get(url,
+                            params={'limit':self._chunk_size})
+        rows = ijson.items(r, 'rows.item')
+        sess = requests.session()
+        for row in rows:
+            self._process_row(sess, row)
+        return True
+
+    def _process_row(self, sess, row):
+        """
+        Processes one row
+        """
+        url = self._path(row['id'])
+        res = sess.get(url,
+                       params={'attachments':'true'},
+                       headers={'accept':'application/json'})
+        h = res.headers
+        contype = ';'.join((h['content-type'], 'charset=utf-8'))
+        self._out_row(contype, h['content-length'],
+                      h['etag'], row['id'])
+        return True
+
+    def _out_row(self, content_type, content_length, etag, content_id):
+        print [content_type, content_length, etag, content_id]
         return True
 
     def _path(self, *args):
