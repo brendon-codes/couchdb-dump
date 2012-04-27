@@ -9,7 +9,7 @@ Tested On:
   * Ubuntu 10.04 LTS
   * CouchDB 1.1.1
 
-Requirements:
+Installing:
 
   $ sudo apt-get install libyajl-dev libyajl1
   $ sudo pip install ijson
