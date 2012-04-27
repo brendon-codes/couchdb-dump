@@ -15,7 +15,6 @@ Installing dependencies:
 
     $ sudo apt-get install libyajl-dev libyajl1
     $ sudo pip install ijson
-    $ sudo pip install requests
     $ sudo pip install CouchDB
 
 To run:

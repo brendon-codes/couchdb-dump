@@ -13,7 +13,6 @@ Installing:
 
   $ sudo apt-get install libyajl-dev libyajl1
   $ sudo pip install ijson
-  $ sudo pip install requests
   $ sudo pip install CouchDB
 """
 
@@ -23,7 +22,6 @@ import urllib
 import base64
 from optparse import OptionParser
 
-import requests
 import ijson
 
 from couchdb.multipart import write_multipart as couchdb_write_multipart
