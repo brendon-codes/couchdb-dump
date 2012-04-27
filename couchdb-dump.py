@@ -126,19 +126,22 @@ class Dump(object):
         """
         self._src_url = src_url.rstrip('/')
 
-    def _run_chunk(self, envelope):
+    def _run_chunk(self, envelope, skip=0):
         """
         Runner
         """
         url = self._path('_all_docs')
         r = Requester().get(url,
-                            params={'limit':self._chunk_size},
+                            params={'limit':self._chunk_size,
+                                    'skip':skip},
                             headers={'accept':'application/json'})
         rows = ijson.items(r, 'rows.item')
         sess = requests.session()
+        i = 0
         for row in rows:
-            self._process_row(envelope, sess, row)
-        return True
+            self._fetch_row(envelope, sess, row)
+            i += 1
+        return i
 
     def run(self):
         url = self._path()
@@ -146,7 +149,13 @@ class Dump(object):
         doc = simplejson.loads(res.text)
         doc_count = doc['doc_count']
         envelope = write_multipart(sys.stdout, boundary=None)
-
+        done = 0
+        while done < doc_count:
+            batch_size = self._run_chunk(envelope, done)
+            if batch_size == 0:
+                break
+            else:
+                done += batch_size
         envelope.close()
         pass
 
@@ -175,8 +184,8 @@ class Dump(object):
             parts.close()
         else:
             envelope.add('application/json', jsondoc, {
-                'Content-ID': doc.id,
-                'ETag': '"%s"' % doc.rev
+                'Content-ID': doc['id'],
+                'ETag': '"%s"' % doc['rev']
             })
         return True
 
@@ -189,7 +198,7 @@ class Dump(object):
                        params={'attachments':'true'},
                        headers={'accept':'application/json'})
         doc = simplejson.loads(res.text)
-        self._process_row(doc)
+        self._process_row(envelope, doc)
         return True
 
     def _path(self, *args):
