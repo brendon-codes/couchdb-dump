@@ -20,7 +20,6 @@ Requirements:
 import sys
 import urllib2
 import urllib
-import simplejson
 import base64
 from optparse import OptionParser
 
@@ -42,6 +41,7 @@ def main():
         parser.error('Invalid arguments.')
     elif len(args) == 0:
         parser.error('SRC_URL argument is required.')
+    couchdb_json.use('simplejson')
     d = Dump(*args)
     d.run()
     return 0
@@ -148,7 +148,7 @@ class Dump(object):
     def run(self):
         url = self._path()
         res = requests.get(url, headers={'accept':'application/json'})
-        doc = simplejson.loads(res.text)
+        doc = couchdb_json.decode(res.text)
         doc_count = doc['doc_count']
         envelope = couchdb_write_multipart(sys.stdout, boundary=None)
         done = 0
@@ -199,7 +199,7 @@ class Dump(object):
         res = sess.get(url,
                        params={'attachments':'true'},
                        headers={'accept':'application/json'})
-        doc = simplejson.loads(res.text)
+        doc = couchdb_json.decode(res.text)
         self._process_row(envelope, doc)
         return True
 
