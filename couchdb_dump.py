@@ -178,21 +178,20 @@ class Dump(object):
         res.close()
         doc = couchdb_json.decode(res_data)
         doc_count = doc['doc_count']
-        envelope = couchdb_write_multipart(sys.stdout, boundary=None)
-        done = 0
-        sys.stderr.write("Doc Count: %d\n" % doc_count)
-        sys.stderr.write("Chunk Size: %d\n" % self._chunk_size)
-        while done < doc_count:
-            batch_size = self._run_chunk(envelope, done)
-            if batch_size == 0:
-                break
-            else:
-                done += batch_size
-                sys.stderr.write("%.2f%% %d/%d\n" % \
-                                 ((float(done) / float(doc_count) * 100),
-                                  done, doc_count))
-        sys.stderr.write("\n")
-        envelope.close()
+        with couchdb_write_multipart(sys.stdout, boundary=None) as envelope:
+            done = 0
+            sys.stderr.write("Doc Count: %d\n" % doc_count)
+            sys.stderr.write("Chunk Size: %d\n" % self._chunk_size)
+            while done < doc_count:
+                batch_size = self._run_chunk(envelope, done)
+                if batch_size == 0:
+                    break
+                else:
+                    done += batch_size
+                    sys.stderr.write("%.2f%% %d/%d\n" % \
+                                     ((float(done) / float(doc_count) * 100),
+                                      done, doc_count))
+            sys.stderr.write("\n")
         pass
 
     def _process_row(self, envelope, doc):
