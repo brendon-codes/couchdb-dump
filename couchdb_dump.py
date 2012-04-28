@@ -16,6 +16,7 @@ Installing:
   $ sudo pip install CouchDB
 """
 
+import time
 import sys
 import urllib2
 import urllib
@@ -54,7 +55,14 @@ def _go():
         parser.error('SRC_URL argument is required.')
     couchdb_json.use('simplejson')
     d = Dump(*args)
+    start_time = time.time()
+    start_clock = time.clock()
     d.run()
+    end_time = time.time()
+    end_clock = time.clock()
+    sys.stderr.write("Finished.\n")
+    sys.stderr.write("Elapsed Time: %f\n" % (end_time - start_time))
+    sys.stderr.write("Elapsed Clock: %f\n" % (end_clock - start_clock))
     return True
 
 
@@ -130,7 +138,7 @@ class Dump(object):
     Main db dumper
     """
 
-    _chunk_size = 500
+    _chunk_size = 10000
     _progress_interval = None
     _src_url = None
 
@@ -138,7 +146,7 @@ class Dump(object):
         """
         Init
         """
-        self._progress_interval = self._chunk_size / 10
+        self._progress_interval = self._chunk_size / 20
         self._src_url = src_url.rstrip('/')
 
     def _run_chunk(self, envelope, skip=0):
@@ -180,9 +188,10 @@ class Dump(object):
                 break
             else:
                 done += batch_size
-                sys.stderr.write("%d/%d\n" % (done, doc_count))
+                sys.stderr.write("%.2f%% %d/%d\n" % \
+                                 ((float(done) / float(doc_count) * 100),
+                                  done, doc_count))
         sys.stderr.write("\n")
-        sys.stderr.write("Done.\n")
         envelope.close()
         pass
 
